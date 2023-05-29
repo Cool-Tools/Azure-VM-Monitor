@@ -2,8 +2,8 @@
 
 public class VmStatus
 {
-    public string? ResourceGroup { get; init; }
-    public string? VirtualMachine { get; init; }
+    public string ResourceGroup { get; init; }
+    public string VirtualMachine { get; init; }
     public string? OsName { get; init; }
     public string? OsVersion { get; init; }
     public string? VmSize { get; init; }
