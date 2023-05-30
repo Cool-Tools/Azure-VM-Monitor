@@ -8,7 +8,7 @@
 
 <h1>Virtual Machines</h1>
 
-@if (_vmStatus == null)
+@if (_vmStatus == null || _uniqueResourceGroups == null)
 {
     <p>Loading...</p>
 }
@@ -79,15 +79,15 @@ else
     {
         // _uniqueResourceGroups = _vmStatus.Select(x => x.ResourceGroup).Distinct().ToList();
         // options = new HashSet<string>(_uniqueResourceGroups);
-        StateHasChanged();
+        // StateHasChanged();
         return base.OnAfterRenderAsync(firstRender);
     }
 
     protected override async Task OnInitializedAsync()
     {
         _vmStatus = await AzVmService.FetchStatus();
-        // _uniqueResourceGroups = _vmStatus.Select(x => x.ResourceGroup).Distinct().ToList();
-        // options = new HashSet<string>(_uniqueResourceGroups);
+        _uniqueResourceGroups = _vmStatus.Select(x => x.ResourceGroup).Distinct().ToList();
+        options = new HashSet<string>(_uniqueResourceGroups);
 
         await base.OnInitializedAsync();
     }

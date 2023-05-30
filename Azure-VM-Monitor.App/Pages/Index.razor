@@ -16,21 +16,26 @@ else
 {
     <MudDataGrid T="VmStatus" Items="@_vmStatus" Filterable="true" FilterMode="@DataGridFilterMode.ColumnFilterRow">
         <Columns>
-            <PropertyColumn Property="x => (_count)" Title="#" Filterable="false" />
+            @* <PropertyColumn Property="x => (_count)" Title="#" Filterable="false" /> *@
             <PropertyColumn Property="x => x.ResourceGroup" Title="Resource Group" Filterable="true">
                 <FilterTemplate>
                     <MudIconButton OnClick="@OpenFilter" Icon="@_icon" Size="@Size.Small" />
                     <MudOverlay Visible="@_filterOpen" OnClick="@(() => _filterOpen = false)" />
                     <MudPopover Open="@_filterOpen" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter"
-                                Style="width:150px">
+                                Style="width:300px">
                         <MudStack Spacing="0">
                             <MudCheckBox T="bool" Label="Select All" Size="@Size.Small" Checked="@_selectAll" CheckedChanged="@SelectAll" />
                             <MudStack Spacing="0" Style="overflow-y:auto;max-height:250px">
-                                @foreach (var item in context.Items)
+                                @foreach (var item in _uniqueResourceGroups)
                                 {
-                                    <MudCheckBox T="bool" Label="@($"{item.ResourceGroup}")" Size="@Size.Small" Checked="@(_selectedItems.Contains(item))"
+                                    <MudCheckBox T="bool" Label="@($"{item}")" Size="@Size.Small" Checked="@(_selectedResourceGroups.Contains(item))"
                                                  CheckedChanged="@((value) => SelectedChanged(value, item))" />
                                 }
+                                @* @foreach (var item in context.Items) *@
+                                @* { *@
+                                @*     <MudCheckBox T="bool" Label="@($"{item.ResourceGroup}")" Size="@Size.Small" Checked="@(_selectedResourceGroups.Contains(item.ResourceGroup))" *@
+                                @*                  CheckedChanged="@((value) => SelectedChanged(value, item))" /> *@
+                                @* } *@
                             </MudStack>
                             <MudStack Row="true">
                                 <MudButton OnClick="@(() => ClearFilterAsync(context))">Clear</MudButton>
@@ -80,7 +85,7 @@ else
     bool _filterOpen = false;
     bool _selectAll = true;
     private IEnumerable<string> _uniqueResourceGroups;
-    HashSet<VmStatus> _selectedItems = new();
+    HashSet<string> _selectedResourceGroups = new();
     HashSet<VmStatus> _filterItems = new();
     FilterDefinition<VmStatus> _filterDefinition;
     
@@ -95,22 +100,22 @@ else
 
         if (value)
         {
-            _selectedItems = _vmStatus.ToHashSet();
+            _selectedResourceGroups = _uniqueResourceGroups.ToHashSet();
         }
         else
         {
-            _selectedItems.Clear();
+            _selectedResourceGroups.Clear();
         }
     }
     
-    private void SelectedChanged(bool value, VmStatus item)
+    private void SelectedChanged(bool value, string item)
     {
         if (value)
-            _selectedItems.Add(item);
+            _selectedResourceGroups.Add(item);
         else
-            _selectedItems.Remove(item);
+            _selectedResourceGroups.Remove(item);
 
-        if (_selectedItems.Count == _vmStatus.Count())
+        if (_selectedResourceGroups.Count == _vmStatus.Count())
             _selectAll = true;
         else
             _selectAll = false;
@@ -118,7 +123,7 @@ else
 
     private async Task ClearFilterAsync(FilterContext<VmStatus> context)
     {
-        _selectedItems = _vmStatus.ToHashSet();
+        _selectedResourceGroups = _uniqueResourceGroups.ToHashSet();
         _filterItems = _vmStatus.ToHashSet();
         _icon = Icons.Material.Outlined.FilterAlt;
         await context.Actions.ClearFilterAsync(_filterDefinition);
@@ -127,7 +132,7 @@ else
 
     private async Task ApplyFilterAsync(FilterContext<VmStatus> context)
     {
-        _filterItems = _selectedItems.ToHashSet();
+        _filterItems = _vmStatus.ToHashSet();
         _icon = _filterItems.Count == _vmStatus.Count() ? Icons.Material.Outlined.FilterAlt : Icons.Material.Filled.FilterAlt;
         await context.Actions.ApplyFilterAsync(_filterDefinition);
         _filterOpen = false;
@@ -151,12 +156,13 @@ else
     protected override async Task OnInitializedAsync()
     {
         _vmStatus = await AzVmService.FetchStatus();
-        _uniqueResourceGroups = _vmStatus.Select(x => x.ResourceGroup).Distinct();
-        _selectedItems = _vmStatus.ToHashSet();
+        _uniqueResourceGroups = _vmStatus.Select(x => x.ResourceGroup).Distinct().ToList();
+        _selectedResourceGroups = _uniqueResourceGroups.ToHashSet();
         _filterItems = _vmStatus.ToHashSet();
         _filterDefinition = new FilterDefinition<VmStatus>
         {
-            FilterFunction = x => _filterItems.Contains(x)
+            FilterFunction = x => _selectedResourceGroups.Contains(x.ResourceGroup)
+        // FilterFunction = x => _filterItems.Contains(x)
         };
         // await base.OnInitializedAsync();
     }

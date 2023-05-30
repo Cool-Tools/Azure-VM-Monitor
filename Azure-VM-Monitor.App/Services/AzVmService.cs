@@ -22,9 +22,13 @@ public class AzVmService : IAzVmService
     {
         var url = "sample-data/All-VM-Status.csv"; //"sample-data/weather.json"
         var csvData = await _httpClient.GetStringAsync(url);
-        var reader = new StringReader(csvData);
-        var csv = new CsvReader(reader, CultureInfo.InvariantCulture);
+        var csvRecords = new List<VmStatus>();
+        using (var reader = new StringReader(csvData))
+        {
+            var csv = new CsvReader(reader, CultureInfo.InvariantCulture);
+            csvRecords = csv.GetRecords<VmStatus>().ToList();
+        }
 
-        return csv.GetRecords<VmStatus>();
+        return csvRecords;
     }
 }
