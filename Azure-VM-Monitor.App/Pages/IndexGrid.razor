@@ -1,4 +1,4 @@
-﻿@page "/"
+﻿@page "/Index-Grid" //"/"
 @using AzureVMMonitor.App.Services
 @using AzureVMMonitor.App.Models
 
@@ -14,14 +14,14 @@
 }
 else
 {
-    <MudSelect T="string" MultiSelection="true" SelectAll="true" SelectAllText="Select all Resource Groups" HelperText="@value" @bind-Value="value" @bind-SelectedValues="options" MultiSelectionTextFunc="@(new Func<List<string>, string>(GetMultiSelectionText))" Label="Resource Groups" AdornmentIcon="@Icons.Material.Filled.Search">
+    <MudSelect T="string" MultiSelection="true" SelectAll="true" SelectAllText="Select all Resource Groups" HelperText="@value" @bind-Value="value" @bind-SelectedValues="options" MultiSelectionTextFunc="@(new Func<List<string>, string>(GetMultiSelectionText))" Label="Resource Groups" AdornmentIcon="@Icons.Material.Filled.Search" @bind-SelectedValues:after="FilterGrid">
         @foreach (var resourceGroup in _uniqueResourceGroups)
         {
             <MudSelectItem T="string" Value="@resourceGroup">@resourceGroup</MudSelectItem>
         }
     </MudSelect>
     <MudGrid Justify="Justify.FlexStart" Spacing="1">
-        @foreach (var vm in _vmStatus)
+        @foreach (var vm in _filteredVmStatus)
         {
             @* <p>@(_count++) @vm!.ResourceGroup @vm!.VirtualMachine @vm!.PowerState</p> *@
             <MudItem xs="3">
@@ -49,6 +49,7 @@ else
 @code {
 
     private IEnumerable<VmStatus>? _vmStatus;
+    private IEnumerable<VmStatus>? _filteredVmStatus;
     private int _count = 1;
     private IEnumerable<string> _uniqueResourceGroups;
     private string value { get; set; } = "Nothing selected";
@@ -86,10 +87,18 @@ else
     protected override async Task OnInitializedAsync()
     {
         _vmStatus = await AzVmService.FetchStatus();
+        _filteredVmStatus = _vmStatus.ToHashSet();
         _uniqueResourceGroups = _vmStatus.Select(x => x.ResourceGroup).Distinct().ToList();
         options = new HashSet<string>(_uniqueResourceGroups);
+        
 
         await base.OnInitializedAsync();
+    }
+
+    private Task FilterGrid()
+    {
+        _filteredVmStatus = _vmStatus!.Where(x => options.Contains(x.ResourceGroup));
+        return Task.CompletedTask;
     }
 
 }

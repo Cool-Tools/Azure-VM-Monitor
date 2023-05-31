@@ -1,4 +1,4 @@
-﻿@page "/Index-Table"
+﻿@page "/" //"/Index-Table"
 @using AzureVMMonitor.App.Services
 @using AzureVMMonitor.App.Models
 
@@ -14,14 +14,15 @@
 }
 else
 {
-    <MudDataGrid T="VmStatus" Items="@_vmStatus" Filterable="true" FilterMode="@DataGridFilterMode.ColumnFilterRow">
+    <MudDataGrid T="VmStatus" Items="@_vmStatus" Filterable="true" FilterMode="@DataGridFilterMode.ColumnFilterMenu">
         <Columns>
             @* <PropertyColumn Property="x => (_count)" Title="#" Filterable="false" /> *@
+            <PropertyColumn Property="x => x.VirtualMachine" Filterable="true" CellStyleFunc="@_cellStyleFunc"></PropertyColumn>
             <PropertyColumn Property="x => x.ResourceGroup" Title="Resource Group" Filterable="true">
                 <FilterTemplate>
-                    <MudIconButton OnClick="@OpenFilter" Icon="@_icon" Size="@Size.Small" />
-                    <MudOverlay Visible="@_filterOpen" OnClick="@(() => _filterOpen = false)" />
-                    <MudPopover Open="@_filterOpen" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter"
+                    @* <MudIconButton OnClick="@OpenFilter" Icon="@_icon" Size="@Size.Small" /> *@
+                    <MudOverlay Visible="@_filterOpen" OnClick="@(() => _filterOpen = false)" /> 
+                    <MudPopover Open="@_filterOpen" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopCenter"
                                 Style="width:300px">
                         <MudStack Spacing="0">
                             <MudCheckBox T="bool" Label="Select All" Size="@Size.Small" Checked="@_selectAll" CheckedChanged="@SelectAll" />
@@ -31,11 +32,6 @@ else
                                     <MudCheckBox T="bool" Label="@($"{item}")" Size="@Size.Small" Checked="@(_selectedResourceGroups.Contains(item))"
                                                  CheckedChanged="@((value) => SelectedChanged(value, item))" />
                                 }
-                                @* @foreach (var item in context.Items) *@
-                                @* { *@
-                                @*     <MudCheckBox T="bool" Label="@($"{item.ResourceGroup}")" Size="@Size.Small" Checked="@(_selectedResourceGroups.Contains(item.ResourceGroup))" *@
-                                @*                  CheckedChanged="@((value) => SelectedChanged(value, item))" /> *@
-                                @* } *@
                             </MudStack>
                             <MudStack Row="true">
                                 <MudButton OnClick="@(() => ClearFilterAsync(context))">Clear</MudButton>
@@ -45,34 +41,10 @@ else
                     </MudPopover>
                 </FilterTemplate>
             </PropertyColumn>
-            <PropertyColumn Property="x => x.VirtualMachine"></PropertyColumn>
-            <PropertyColumn Property="x => x.OsName"></PropertyColumn>
-            <PropertyColumn Property="x => x.OsVersion"></PropertyColumn>
-            <PropertyColumn Property="x => x.PowerState"></PropertyColumn>
+            <PropertyColumn Property="x => x.OsName" Filterable="true"></PropertyColumn>
+            <PropertyColumn Property="x => x.OsVersion" Filterable="false"></PropertyColumn>
+            <PropertyColumn Property="x => x.PowerState" Filterable="false" CellStyleFunc="@_cellStyleFunc"></PropertyColumn>
         </Columns>
-        @* @foreach (var vm in _vmStatus) *@
-        @* { *@
-        @*     $1$ <p>@(_count++) @vm!.ResourceGroup @vm!.VirtualMachine @vm!.PowerState</p> #1# *@
-        @*     <MudItem xs="3"> *@
-        @*         <MudCard> *@
-        @*             <MudCardHeader Style=@StyleForVMState(vm!.PowerState)> *@
-        @*                 <CardHeaderContent> *@
-        @*                     <MudText Typo="Typo.h6">@vm!.VirtualMachine</MudText> *@
-        @*                 </CardHeaderContent> *@
-        @*                 <CardHeaderActions> *@
-        @*                     <MudIconButton Icon="@Icons.Material.Filled.Settings" Color="Color.Default"/> *@
-        @*                 </CardHeaderActions> *@
-        @*             </MudCardHeader> *@
-        @*             <MudCardContent> *@
-        @*                 <MudText>@vm.PowerState</MudText> *@
-        @*                 <MudText Typo="Typo.body2">@vm.OsName</MudText> *@
-        @*             </MudCardContent> *@
-        @*             <MudCardActions> *@
-        @*                 <MudButton Variant="Variant.Text" Color="Color.Primary">Open</MudButton> *@
-        @*             </MudCardActions> *@
-        @*         </MudCard> *@
-        @*     </MudItem> *@
-        @* } *@
         <PagerContent>
             <MudDataGridPager T="VmStatus" />
         </PagerContent>
@@ -82,12 +54,34 @@ else
     string _icon = Icons.Material.Outlined.FilterAlt;
     private IEnumerable<VmStatus>? _vmStatus;
     private int _count = 1;
-    bool _filterOpen = false;
+    bool _filterOpen = true;
     bool _selectAll = true;
-    private IEnumerable<string> _uniqueResourceGroups;
+    private IEnumerable<string>? _uniqueResourceGroups;
     HashSet<string> _selectedResourceGroups = new();
     HashSet<VmStatus> _filterItems = new();
-    FilterDefinition<VmStatus> _filterDefinition;
+    FilterDefinition<VmStatus>? _filterDefinition;
+    
+    private Func<VmStatus, string> _cellStyleFunc => x =>
+    {
+        string style = "";
+
+        switch (x.PowerState)
+        {
+            case "VM running":
+                style += "color: green;";
+                break;
+                
+            case "VM stopped":
+                style += "color: red;";
+                break;
+                
+            case "VM deallocated":
+                style += "color: darkgray;";
+                break;
+        }
+
+        return style;
+    };
     
     void OpenFilter()
     {
@@ -123,19 +117,19 @@ else
 
     private async Task ClearFilterAsync(FilterContext<VmStatus> context)
     {
-        _selectedResourceGroups = _uniqueResourceGroups.ToHashSet();
-        _filterItems = _vmStatus.ToHashSet();
+        _selectedResourceGroups = _uniqueResourceGroups!.ToHashSet();
+        _filterItems = _vmStatus!.ToHashSet();
         _icon = Icons.Material.Outlined.FilterAlt;
-        await context.Actions.ClearFilterAsync(_filterDefinition);
-        _filterOpen = false;
+        await context.Actions.ClearFilterAsync(_filterDefinition!);
+        // _filterOpen = false;
     }
 
     private async Task ApplyFilterAsync(FilterContext<VmStatus> context)
     {
-        _filterItems = _vmStatus.ToHashSet();
-        _icon = _filterItems.Count == _vmStatus.Count() ? Icons.Material.Outlined.FilterAlt : Icons.Material.Filled.FilterAlt;
-        await context.Actions.ApplyFilterAsync(_filterDefinition);
-        _filterOpen = false;
+        _filterItems = _vmStatus!.ToHashSet();
+        _icon = _filterItems.Count == _vmStatus!.Count() ? Icons.Material.Outlined.FilterAlt : Icons.Material.Filled.FilterAlt;
+        await context.Actions.ApplyFilterAsync(_filterDefinition!);
+        // _filterOpen = false;
     }
     
     private string StyleForVMState(string state)
@@ -156,13 +150,15 @@ else
     protected override async Task OnInitializedAsync()
     {
         _vmStatus = await AzVmService.FetchStatus();
-        _uniqueResourceGroups = _vmStatus.Select(x => x.ResourceGroup).Distinct().ToList();
-        _selectedResourceGroups = _uniqueResourceGroups.ToHashSet();
-        _filterItems = _vmStatus.ToHashSet();
+        if (_vmStatus != null)
+        {
+            _uniqueResourceGroups = _vmStatus.Select(x => x.ResourceGroup).Distinct().ToList();
+            _selectedResourceGroups = _uniqueResourceGroups.ToHashSet();
+            _filterItems = _vmStatus.ToHashSet();
+        }
         _filterDefinition = new FilterDefinition<VmStatus>
         {
             FilterFunction = x => _selectedResourceGroups.Contains(x.ResourceGroup)
-        // FilterFunction = x => _filterItems.Contains(x)
         };
         // await base.OnInitializedAsync();
     }
