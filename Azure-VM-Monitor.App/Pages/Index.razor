@@ -14,7 +14,7 @@
 }
 else
 {
-    <MudDataGrid T="VmStatus" Items="@_vmStatus" Filterable="true" FilterMode="@DataGridFilterMode.ColumnFilterMenu">
+    <MudDataGrid @ref="_vmStatusGrid" T="VmStatus" Items="@_vmStatus" Filterable="true" FilterMode="@DataGridFilterMode.ColumnFilterMenu">
         <Columns>
             @* <PropertyColumn Property="x => (_count)" Title="#" Filterable="false" /> *@
             <PropertyColumn Property="x => x.VirtualMachine" Filterable="true" CellStyleFunc="@_cellStyleFunc"></PropertyColumn>
@@ -30,7 +30,7 @@ else
                             }
                         </MudStack>
                         <MudStack Row="true">
-                            <MudButton OnClick="@(() => ClearFilterAsync(context))">Clear</MudButton>
+                            <MudButton OnClick="@(() => ClearFilterAsync(context, "resource-group"))">Clear</MudButton>
                             <MudButton Color="@Color.Primary" OnClick="@(() => ApplyFilterAsync(context))">Filter</MudButton>
                         </MudStack>
                     </MudStack>
@@ -50,7 +50,7 @@ else
                             }
                         </MudStack>
                         <MudStack Row="true">
-                            <MudButton OnClick="@(() => ClearFilterAsync(context))">Clear</MudButton>
+                            <MudButton OnClick="@(() => ClearFilterAsync(context, "power-state"))">Clear</MudButton>
                             <MudButton Color="@Color.Primary" OnClick="@(() => ApplyFilterAsync(context))">Filter</MudButton>
                         </MudStack>
                     </MudStack>
@@ -75,7 +75,8 @@ else
     HashSet<string> _selectedPowerStates = new();
     HashSet<VmStatus> _filterItems = new();
     FilterDefinition<VmStatus>? _filterDefinition;
-    
+    private MudDataGrid<VmStatus> _vmStatusGrid;
+
     private Func<VmStatus, string> _cellStyleFunc => x =>
     {
         string style = "";
@@ -130,9 +131,13 @@ else
             _selectAllRG = false;
     }
 
-    private async Task ClearFilterAsync(FilterContext<VmStatus> context)
+    private async Task ClearFilterAsync(FilterContext<VmStatus> context, string column)
     {
-        // _selectedResourceGroups = _uniqueResourceGroups!.ToHashSet();
+        if(column == "resource-group")
+            _selectedResourceGroups = _uniqueResourceGroups!.ToHashSet();
+        if(column == "power-state")
+            _selectedPowerStates = _uniquePowerStates!.ToHashSet();
+        
         _filterItems = _vmStatus!.ToHashSet();
         await context.Actions.ClearFilterAsync(_filterDefinition!);
     }
@@ -159,6 +164,15 @@ else
         {
             FilterFunction = x => (_selectedResourceGroups.Contains(x.ResourceGroup) && _selectedPowerStates.Contains(x.PowerState))
         };
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (!firstRender)
+        {
+            await _vmStatusGrid.AddFilterAsync(_filterDefinition);
+        }
     }
 
     private Task SelectedPSChanged(bool? value, string item)
