@@ -20,30 +20,42 @@ else
             <PropertyColumn Property="x => x.VirtualMachine" Filterable="true" CellStyleFunc="@_cellStyleFunc"></PropertyColumn>
             <PropertyColumn Property="x => x.ResourceGroup" Title="Resource Group" Filterable="true">
                 <FilterTemplate>
-                    @* <MudIconButton OnClick="@OpenFilter" Icon="@_icon" Size="@Size.Small" /> *@
-                    <MudOverlay Visible="@_filterOpen" OnClick="@(() => _filterOpen = false)" /> 
-                    <MudPopover Open="@_filterOpen" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopCenter"
-                                Style="width:300px">
-                        <MudStack Spacing="0">
-                            <MudCheckBox T="bool" Label="Select All" Size="@Size.Small" Checked="@_selectAll" CheckedChanged="@SelectAll" />
-                            <MudStack Spacing="0" Style="overflow-y:auto;max-height:250px">
-                                @foreach (var item in _uniqueResourceGroups)
-                                {
-                                    <MudCheckBox T="bool" Label="@($"{item}")" Size="@Size.Small" Checked="@(_selectedResourceGroups.Contains(item))"
-                                                 CheckedChanged="@((value) => SelectedChanged(value, item))" />
-                                }
-                            </MudStack>
-                            <MudStack Row="true">
-                                <MudButton OnClick="@(() => ClearFilterAsync(context))">Clear</MudButton>
-                                <MudButton Color="@Color.Primary" OnClick="@(() => ApplyFilterAsync(context))">Filter</MudButton>
-                            </MudStack>
+                    <MudStack Spacing="0">
+                        <MudCheckBox T="bool" Label="Select All" Size="@Size.Small" Checked="@_selectAllRG" CheckedChanged="@SelectAll" />
+                        <MudStack Spacing="0" Style="overflow-y:auto;max-height:250px">
+                            @foreach (var item in _uniqueResourceGroups)
+                            {
+                                <MudCheckBox T="bool" Label="@($"{item}")" Size="@Size.Small" Checked="@(_selectedResourceGroups.Contains(item))"
+                                             CheckedChanged="@((value) => SelectedChanged(value, item))" />
+                            }
                         </MudStack>
-                    </MudPopover>
+                        <MudStack Row="true">
+                            <MudButton OnClick="@(() => ClearFilterAsync(context))">Clear</MudButton>
+                            <MudButton Color="@Color.Primary" OnClick="@(() => ApplyFilterAsync(context))">Filter</MudButton>
+                        </MudStack>
+                    </MudStack>
                 </FilterTemplate>
             </PropertyColumn>
             <PropertyColumn Property="x => x.OsName" Filterable="true"></PropertyColumn>
-            <PropertyColumn Property="x => x.OsVersion" Filterable="false"></PropertyColumn>
-            <PropertyColumn Property="x => x.PowerState" Filterable="false" CellStyleFunc="@_cellStyleFunc"></PropertyColumn>
+            <PropertyColumn Property="x => x.OsVersion" Filterable="true"></PropertyColumn>
+            <PropertyColumn Property="x => x.PowerState" Filterable="true" CellStyleFunc="@_cellStyleFunc">
+                <FilterTemplate>
+                    <MudStack Spacing="0">
+                        <MudCheckBox T="bool" Label="Select All" Size="@Size.Small" Checked="@_selectAllPS" CheckedChanged="@SelectAllPS" />
+                        <MudStack Spacing="0" Style="overflow-y:auto;max-height:250px">
+                            @foreach (var item in _uniquePowerStates)
+                            {
+                                <MudCheckBox T="bool" Label="@($"{item}")" Size="@Size.Small" Checked="@(_selectedPowerStates.Contains(item))"
+                                             CheckedChanged="@((value) => SelectedPSChanged(value, item))" />
+                            }
+                        </MudStack>
+                        <MudStack Row="true">
+                            <MudButton OnClick="@(() => ClearFilterAsync(context))">Clear</MudButton>
+                            <MudButton Color="@Color.Primary" OnClick="@(() => ApplyFilterAsync(context))">Filter</MudButton>
+                        </MudStack>
+                    </MudStack>
+                </FilterTemplate>
+            </PropertyColumn>
         </Columns>
         <PagerContent>
             <MudDataGridPager T="VmStatus" />
@@ -55,9 +67,12 @@ else
     private IEnumerable<VmStatus>? _vmStatus;
     private int _count = 1;
     bool _filterOpen = true;
-    bool _selectAll = true;
+    bool _selectAllRG = true;
+    bool _selectAllPS = true;
     private IEnumerable<string>? _uniqueResourceGroups;
+    private IEnumerable<string>? _uniquePowerStates;
     HashSet<string> _selectedResourceGroups = new();
+    HashSet<string> _selectedPowerStates = new();
     HashSet<VmStatus> _filterItems = new();
     FilterDefinition<VmStatus>? _filterDefinition;
     
@@ -90,7 +105,7 @@ else
     
     private void SelectAll(bool value)
     {
-        _selectAll = value;
+        _selectAllRG = value;
 
         if (value)
         {
@@ -110,43 +125,24 @@ else
             _selectedResourceGroups.Remove(item);
 
         if (_selectedResourceGroups.Count == _vmStatus.Count())
-            _selectAll = true;
+            _selectAllRG = true;
         else
-            _selectAll = false;
+            _selectAllRG = false;
     }
 
     private async Task ClearFilterAsync(FilterContext<VmStatus> context)
     {
-        _selectedResourceGroups = _uniqueResourceGroups!.ToHashSet();
+        // _selectedResourceGroups = _uniqueResourceGroups!.ToHashSet();
         _filterItems = _vmStatus!.ToHashSet();
-        _icon = Icons.Material.Outlined.FilterAlt;
         await context.Actions.ClearFilterAsync(_filterDefinition!);
-        // _filterOpen = false;
     }
 
     private async Task ApplyFilterAsync(FilterContext<VmStatus> context)
     {
         _filterItems = _vmStatus!.ToHashSet();
-        _icon = _filterItems.Count == _vmStatus!.Count() ? Icons.Material.Outlined.FilterAlt : Icons.Material.Filled.FilterAlt;
         await context.Actions.ApplyFilterAsync(_filterDefinition!);
-        // _filterOpen = false;
     }
     
-    private string StyleForVMState(string state)
-    {
-        switch (state)
-        {
-            case "VM running":
-                return "background: green; color: white";
-                
-            case "VM stopped":
-                return "background: red; color: white";
-                
-            case "VM deallocated":
-                return "background: darkgray; color: white";
-        }
-        return "";
-    }
     protected override async Task OnInitializedAsync()
     {
         _vmStatus = await AzVmService.FetchStatus();
@@ -154,13 +150,43 @@ else
         {
             _uniqueResourceGroups = _vmStatus.Select(x => x.ResourceGroup).Distinct().ToList();
             _selectedResourceGroups = _uniqueResourceGroups.ToHashSet();
+            _uniquePowerStates = _vmStatus.Select(x => x.PowerState).Distinct().ToList();
+            _selectedPowerStates = _uniquePowerStates.ToHashSet();
+            
             _filterItems = _vmStatus.ToHashSet();
         }
         _filterDefinition = new FilterDefinition<VmStatus>
         {
-            FilterFunction = x => _selectedResourceGroups.Contains(x.ResourceGroup)
+            FilterFunction = x => (_selectedResourceGroups.Contains(x.ResourceGroup) && _selectedPowerStates.Contains(x.PowerState))
         };
-        // await base.OnInitializedAsync();
+    }
+
+    private Task SelectedPSChanged(bool? value, string item)
+    {
+        if (value != null && value.Value)
+            _selectedPowerStates.Add(item);
+        else
+            _selectedPowerStates.Remove(item);
+
+        if (_selectedPowerStates.Count == _uniquePowerStates!.Count())
+            _selectAllPS = true;
+        else
+            _selectAllPS = false;
+        return Task.CompletedTask;
+    }
+
+    private void SelectAllPS(bool value)
+    {
+        _selectAllPS = value;
+
+        if (value)
+        {
+            _selectedPowerStates = _uniquePowerStates!.ToHashSet();
+        }
+        else
+        {
+            _selectedPowerStates.Clear();
+        }    
     }
 
 }
