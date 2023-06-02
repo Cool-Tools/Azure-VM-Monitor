@@ -21,7 +21,7 @@ else
             <PropertyColumn Property="x => x.ResourceGroup" Title="Resource Group" Filterable="true">
                 <FilterTemplate>
                     <MudStack Spacing="0">
-                        <MudCheckBox T="bool" Label="Select All" Size="@Size.Small" Checked="@_selectAllRG" CheckedChanged="@SelectAll" />
+                        <MudCheckBox T="bool" Label="Select All" Size="@Size.Small" Checked="@_selectAllRG" CheckedChanged="@((value) => SelectAll(value))" />
                         <MudStack Spacing="0" Style="overflow-y:auto;max-height:250px">
                             @foreach (var item in _uniqueResourceGroups)
                             {
@@ -41,7 +41,7 @@ else
             <PropertyColumn Property="x => x.PowerState" Filterable="true" CellStyleFunc="@_cellStyleFunc">
                 <FilterTemplate>
                     <MudStack Spacing="0">
-                        <MudCheckBox T="bool" Label="Select All" Size="@Size.Small" Checked="@_selectAllPS" CheckedChanged="@SelectAllPS" />
+                        <MudCheckBox T="bool" Label="Select All" Size="@Size.Small" Checked="@_selectAllPS" CheckedChanged="@((value) => SelectAllPS(value))" />
                         <MudStack Spacing="0" Style="overflow-y:auto;max-height:250px">
                             @foreach (var item in _uniquePowerStates)
                             {
@@ -104,11 +104,11 @@ else
         _filterOpen = true;
     }
     
-    private void SelectAll(bool value)
+    private void SelectAll(bool? value)
     {
-        _selectAllRG = value;
+        _selectAllRG = value!.Value;
 
-        if (value)
+        if (value != null && value.Value)
         {
             _selectedResourceGroups = _uniqueResourceGroups.ToHashSet();
         }
@@ -118,9 +118,9 @@ else
         }
     }
     
-    private void SelectedChanged(bool value, string item)
+    private Task SelectedChanged(bool? value, string item)
     {
-        if (value)
+        if (value != null && value.Value)
             _selectedResourceGroups.Add(item);
         else
             _selectedResourceGroups.Remove(item);
@@ -129,14 +129,21 @@ else
             _selectAllRG = true;
         else
             _selectAllRG = false;
+        return Task.CompletedTask;
     }
 
     private async Task ClearFilterAsync(FilterContext<VmStatus> context, string column)
     {
-        if(column == "resource-group")
+        if (column == "resource-group")
+        {
+            _selectAllRG = true;
             _selectedResourceGroups = _uniqueResourceGroups!.ToHashSet();
-        if(column == "power-state")
+        }
+        if (column == "power-state")
+        {
+            _selectAllPS = true;
             _selectedPowerStates = _uniquePowerStates!.ToHashSet();
+        }
         
         _filterItems = _vmStatus!.ToHashSet();
         await context.Actions.ClearFilterAsync(_filterDefinition!);
@@ -189,11 +196,11 @@ else
         return Task.CompletedTask;
     }
 
-    private void SelectAllPS(bool value)
+    private void SelectAllPS(bool? value)
     {
-        _selectAllPS = value;
+        _selectAllPS = value!.Value;
 
-        if (value)
+        if (value != null && value.Value)
         {
             _selectedPowerStates = _uniquePowerStates!.ToHashSet();
         }
